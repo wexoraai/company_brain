@@ -283,7 +283,21 @@ If the tools return results, summarize them in clean, plain English, and cite th
             
         return response.text, sources
     except Exception as e:
-        logger.warning(f"Error calling Gemini tool-calling agent: {e}. Falling back to local mock response.")
+        logger.warning(f"Error calling Gemini tool-calling agent: {e}. Attempting direct tool query fallback.")
+        q_low = question.lower()
+        if "crm" in q_low or "lead" in q_low:
+            try:
+                # Call Zoho CRM directly without needing the Gemini LLM
+                crm_res = ZohoCRMClient.get_leads()
+                res_data = json.loads(crm_res)
+                if "Live Zoho CRM API" in res_data.get("source", ""):
+                    count = res_data.get("leads_count", 0)
+                    breakdown = res_data.get("breakdown", {})
+                    breakdown_str = ", ".join([f"{k}: {v}" for k, v in breakdown.items()])
+                    return f"According to your live Zoho CRM data: you currently have a total of {count} lead record(s) in your system. Breakdown: {breakdown_str or 'None'}.", ["Live Zoho CRM API"]
+            except Exception as ex:
+                logger.error(f"Direct Zoho CRM fallback query failed: {ex}")
+
         mock_ans, mock_src = get_mock_agent_response(question)
         if mock_ans != "I don't have a document on that":
             return mock_ans, mock_src

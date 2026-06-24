@@ -4,7 +4,7 @@ import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from database import init_db, async_session
+from database import init_db, async_session, engine, Base
 import models
 import ingestion
 from config import settings
@@ -13,16 +13,15 @@ from config import settings
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 
 async def seed_data():
-    print("Starting database seeding...")
+    print("Dropping existing tables and database seeding...")
+    # Drop all tables first for a clean seed
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+        
     # Initialize DB (creates extensions and tables)
     await init_db()
 
     async with async_session() as db:
-        # Check if company already seeded
-        result = await db.execute(select(models.Company).where(models.Company.name == "Soil Systems"))
-        if result.scalar_one_or_none():
-            print("Database already seeded. Skipping.")
-            return
 
         # 1. Seed Companies
         soil_systems = models.Company(name="Soil Systems")

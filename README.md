@@ -58,3 +58,5 @@ To run the automated acceptance tests against the five owner questions:
 python verify_system.py
 ```
 This script will seed mock data representing the 5 target scenarios and query the RAG model to verify correctness.
+
+# company_brain

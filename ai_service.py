@@ -102,7 +102,8 @@ async def get_embedding(text: str) -> List[float]:
         response = genai.embed_content(
             model="models/gemini-embedding-001",
             content=text,
-            task_type="retrieval_document"
+            task_type="retrieval_document",
+            output_dimensionality=768
         )
         return response['embedding']
     except Exception as e:

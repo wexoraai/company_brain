@@ -100,7 +100,7 @@ async def get_embedding(text: str) -> List[float]:
 
     try:
         response = genai.embed_content(
-            model="models/text-embedding-004",
+            model="models/embedding-001",
             content=text,
             task_type="retrieval_document"
         )

@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     ZOHO_BOOKS_API_KEY: str = os.getenv("ZOHO_BOOKS_API_KEY", "mock_zoho_books_key")
     RETELL_API_KEY: str = os.getenv("RETELL_API_KEY", "mock_retell_key")
 
+    # Zoho CRM OAuth config keys
+    ZOHO_CLIENT_ID: str = os.getenv("ZOHO_CLIENT_ID", "")
+    ZOHO_CLIENT_SECRET: str = os.getenv("ZOHO_CLIENT_SECRET", "")
+    ZOHO_REFRESH_TOKEN: str = os.getenv("ZOHO_REFRESH_TOKEN", "")
+
     # Supabase configurations
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
     SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")

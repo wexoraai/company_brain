@@ -305,6 +305,59 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
 # 4. UI Mount and Serving
 # ----------------------------------------------------
 
+@app.get("/oauth2callback", response_class=HTMLResponse)
+async def oauth2callback(code: str, error: Optional[str] = None):
+    if error:
+        return f"<h3>Authentication error: {error}</h3>"
+    
+    url = "https://accounts.zoho.com/oauth/v2/token"
+    client_id = settings.ZOHO_CLIENT_ID or "1000.4IQQQ7P3ABAN0Z7BY5CXLBDCLYVLUT"
+    client_secret = settings.ZOHO_CLIENT_SECRET or "52c51ce73f1eb9159c5f79b1079f5c7cbf04f37324"
+    
+    data = {
+        "grant_type": "authorization_code",
+        "client_id": client_id,
+        "client_secret": client_secret,
+        "redirect_uri": "http://localhost:8000/oauth2callback",
+        "code": code
+    }
+    
+    import httpx
+    try:
+        async with httpx.AsyncClient() as client:
+            res = await client.post(url, data=data)
+            res_data = res.json()
+    except Exception as e:
+        return f"<h3>Failed to exchange code: {e}</h3>"
+        
+    refresh_token = res_data.get("refresh_token")
+    if not refresh_token:
+        return f"<h3>Failed to get refresh token: {res_data}</h3>"
+        
+    # Write to local .env
+    env_path = ".env"
+    lines = []
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+            
+    lines = [line for line in lines if not any(line.startswith(prefix) for prefix in ["ZOHO_CLIENT_ID=", "ZOHO_CLIENT_SECRET=", "ZOHO_REFRESH_TOKEN="])]
+    
+    lines.append(f"ZOHO_CLIENT_ID={client_id}\n")
+    lines.append(f"ZOHO_CLIENT_SECRET={client_secret}\n")
+    lines.append(f"ZOHO_REFRESH_TOKEN={refresh_token}\n")
+    
+    with open(env_path, "w", encoding="utf-8") as f:
+        f.writelines(lines)
+        
+    return """
+        <div style="font-family: sans-serif; text-align: center; margin-top: 100px; color: #ececec; background-color: #171717; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2f2f2f;">
+            <h2 style="color: #10b981; margin-bottom: 20px;">Zoho CRM Connected Successfully!</h2>
+            <p style="margin-bottom: 20px;">Your Client ID, Client Secret, and permanent Refresh Token have been saved to your local <b>.env</b> file.</p>
+            <p style="color: #f59e0b;"><b>Important:</b> Please restart your backend server terminal to apply the new keys!</p>
+        </div>
+    """
+
 # Basic dashboard HTML served directly
 @app.get("/", response_class=HTMLResponse)
 async def serve_dashboard():

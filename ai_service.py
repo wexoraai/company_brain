@@ -48,7 +48,7 @@ class ZohoCRMClient:
         if access_token:
             headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
             api_domain = settings.ZOHO_API_DOMAIN or "https://www.zohoapis.com"
-            url = f"{api_domain.rstrip('/')}/crm/v3/Leads"
+            url = f"{api_domain.rstrip('/')}/crm/v3/Leads?fields=Last_Name,Lead_Source,Company"
             try:
                 with httpx.Client() as client:
                     res = client.get(url, headers=headers)
@@ -58,7 +58,7 @@ class ZohoCRMClient:
                         count = len(records)
                         breakdown = {}
                         for r in records:
-                            source = r.get("Lead_Source") or "Website"
+                            source = r.get("Lead_Source") or r.get("Company") or "General Website"
                             breakdown[source] = breakdown.get(source, 0) + 1
                         return json.dumps({
                             "source": "Live Zoho CRM API",

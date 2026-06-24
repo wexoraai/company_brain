@@ -106,8 +106,8 @@ async def main():
         success = True
         for idx, case in enumerate(verification_cases):
             if idx > 0:
-                print("  Waiting 12 seconds to respect Gemini API Free Tier rate limit...")
-                await asyncio.sleep(12)
+                print("  Waiting 20 seconds to respect Gemini API Free Tier rate limit...")
+                await asyncio.sleep(20)
                 
             res = await verify_question(client, case)
             if not res:

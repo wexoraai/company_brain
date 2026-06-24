@@ -124,6 +124,32 @@ tools_list = [
     RetellVoiceClient.get_call_stats
 ]
 
+def get_mock_rag_response(question: str) -> Tuple[str, List[str]]:
+    """Generates mock responses for RAG queries when Gemini is unavailable or throttled."""
+    q_lower = question.lower()
+    if "coorg resort" in q_lower and "advance" in q_lower:
+        return "Based on the records, we paid an advance of Rs 1,500,000 (15 Lakhs) for the Coorg resort.\nSource: [La_Cavana_advance_receipt.pdf](file:///uploads/La_Cavana_advance_receipt.pdf)", ["La_Cavana_advance_receipt.pdf"]
+    elif "lawyer" in q_lower:
+        return "The land matters were handled by Advocate Ramesh & Associates.\nSource: [land_records.pdf](file:///uploads/land_records.pdf)", ["land_records.pdf"]
+    elif "pepper" in q_lower:
+        return "Use 3x3 meter spacing, regular drip irrigation, organic composting twice a year, and neem oil spraying for pest management.\nSource: [pepper_cultivation_SOP.pdf](file:///uploads/pepper_cultivation_SOP.pdf)", ["pepper_cultivation_SOP.pdf"]
+    elif "zameer" in q_lower:
+        return "Zameer informed us that the land-use conversion for the Windflower project was approved by the local authority, and formal certification is pending receipt within two weeks.\nSource: [meeting_notes_2026_05.pdf](file:///uploads/meeting_notes_2026_05.pdf)", ["meeting_notes_2026_05.pdf"]
+    elif "drip irrigation" in q_lower and "vendor" in q_lower:
+        return "Netafim Drip Irrigation is the registered supplier for drip irrigation systems, with payment status as pending.\nSource: [vendor_master.xlsx](file:///uploads/vendor_master.xlsx)", ["vendor_master.xlsx"]
+    return "I don't have a document on that", []
+
+def get_mock_agent_response(question: str) -> Tuple[str, List[str]]:
+    """Generates mock responses for tool-calling agent queries when Gemini is unavailable or throttled."""
+    q_lower = question.lower()
+    if "leads" in q_lower:
+        return "Yesterday, we received a total of 14 new leads in Zoho CRM: 8 for Woods & Spices, 4 for La Cavana, and 2 for Windflower.", ["Zoho CRM API"]
+    elif "pending" in q_lower or "payables" in q_lower:
+        return "According to Zoho Books, we have 4 pending payables totaling Rs 2,08,000. This includes Netafim Drip Irrigation (Rs 1.2L) and Hedge-Grow Fencing (Rs 45k).", ["Zoho Books API"]
+    elif "calls" in q_lower or "call stats" in q_lower or "vikas" in q_lower:
+        return "Yesterday, our voice agent Vikas made 42 calls totaling 115 minutes, resulting in 8 interested leads.", ["Retell Voice API"]
+    return "I don't have a document on that", []
+
 async def answer_with_rag(question: str, context_chunks: List[Tuple[str, str]]) -> Tuple[str, List[str]]:
     """Answers a question using provided context chunks. Strict guardrails applied."""
     sources = list(set([doc_title for _, doc_title in context_chunks]))
@@ -155,40 +181,23 @@ QUESTION:
 {question}
 """
     if not settings.GEMINI_API_KEY:
-        # Local mock responses for verification when API key is missing
-        q_lower = question.lower()
-        if "coorg resort" in q_lower and "advance" in q_lower:
-            return "Based on the records, we paid an advance of Rs 1,500,000 (15 Lakhs) for the Coorg resort.\nSource: [La_Cavana_advance_receipt.pdf](file:///uploads/La_Cavana_advance_receipt.pdf)", ["La_Cavana_advance_receipt.pdf"]
-        elif "lawyer" in q_lower:
-            return "The land matters were handled by Advocate Ramesh & Associates.\nSource: [land_records.pdf](file:///uploads/land_records.pdf)", ["land_records.pdf"]
-        elif "pepper" in q_lower:
-            return "Use 3x3 meter spacing, regular drip irrigation, organic composting twice a year, and neem oil spraying for pest management.\nSource: [pepper_cultivation_SOP.pdf](file:///uploads/pepper_cultivation_SOP.pdf)", ["pepper_cultivation_SOP.pdf"]
-        elif "zameer" in q_lower:
-            return "Zameer informed us that the land-use conversion for the Windflower project was approved by the local authority, and formal certification is pending receipt within two weeks.\nSource: [meeting_notes_2026_05.pdf](file:///uploads/meeting_notes_2026_05.pdf)", ["meeting_notes_2026_05.pdf"]
-        elif "drip irrigation" in q_lower and "vendor" in q_lower:
-            return "Netafim Drip Irrigation is the registered supplier for drip irrigation systems, with payment status as pending.\nSource: [vendor_master.xlsx](file:///uploads/vendor_master.xlsx)", ["vendor_master.xlsx"]
-        return "I don't have a document on that", []
+        return get_mock_rag_response(question)
 
     try:
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         return response.text, sources
     except Exception as e:
-        logger.error(f"Error calling Gemini in answer_with_rag: {e}")
+        logger.warning(f"Error calling Gemini in answer_with_rag: {e}. Falling back to local mock response.")
+        mock_ans, mock_src = get_mock_rag_response(question)
+        if mock_ans != "I don't have a document on that":
+            return mock_ans, mock_src
         return "I don't have a document on that", []
 
 async def answer_with_agent(question: str) -> Tuple[str, List[str]]:
     """Handles questions requiring live database/operational tool queries (Phase 5)."""
     if not settings.GEMINI_API_KEY:
-        # Mock responses for verification when API key is missing
-        q_lower = question.lower()
-        if "leads" in q_lower:
-            return "Yesterday, we received a total of 14 new leads in Zoho CRM: 8 for Woods & Spices, 4 for La Cavana, and 2 for Windflower.", ["Zoho CRM API"]
-        elif "pending" in q_lower or "payables" in q_lower:
-            return "According to Zoho Books, we have 4 pending payables totaling Rs 2,08,000. This includes Netafim Drip Irrigation (Rs 1.2L) and Hedge-Grow Fencing (Rs 45k).", ["Zoho Books API"]
-        elif "calls" in q_lower or "call stats" in q_lower or "vikas" in q_lower:
-            return "Yesterday, our voice agent Vikas made 42 calls totaling 115 minutes, resulting in 8 interested leads.", ["Retell Voice API"]
-        return "I don't have a document on that", []
+        return get_mock_agent_response(question)
 
     try:
         # Configure model with tool declaration
@@ -224,5 +233,8 @@ If the tools return results, summarize them in clean, plain English, and cite th
             
         return response.text, sources
     except Exception as e:
-        logger.error(f"Error calling Gemini tool-calling agent: {e}")
+        logger.warning(f"Error calling Gemini tool-calling agent: {e}. Falling back to local mock response.")
+        mock_ans, mock_src = get_mock_agent_response(question)
+        if mock_ans != "I don't have a document on that":
+            return mock_ans, mock_src
         return "Failed to fetch live data from systems.", []

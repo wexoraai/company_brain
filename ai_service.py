@@ -210,9 +210,17 @@ If the tools return results, summarize them in clean, plain English, and cite th
             if part.function_call:
                 sources.append(f"{part.function_call.name}() tool")
         
-        # If no explicit tools called, tag as general API response
+        # If no explicit tools called, map based on question keywords
         if not sources:
-            sources = ["Live Systems Interface"]
+            q_low = question.lower()
+            if "crm" in q_low or "lead" in q_low:
+                sources = ["Zoho CRM API"]
+            elif "books" in q_low or "payable" in q_low or "payment" in q_low:
+                sources = ["Zoho Books API"]
+            elif "call" in q_low or "retell" in q_low or "vikas" in q_low:
+                sources = ["Retell Voice API"]
+            else:
+                sources = ["Live Systems Interface"]
             
         return response.text, sources
     except Exception as e:

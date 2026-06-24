@@ -23,7 +23,8 @@ class ZohoCRMClient:
         if not settings.ZOHO_REFRESH_TOKEN or not settings.ZOHO_CLIENT_ID or not settings.ZOHO_CLIENT_SECRET:
             return None
         import httpx
-        url = "https://accounts.zoho.com/oauth/v2/token"
+        accounts_server = settings.ZOHO_ACCOUNTS_SERVER or "https://accounts.zoho.com"
+        url = f"{accounts_server.rstrip('/')}/oauth/v2/token"
         data = {
             "refresh_token": settings.ZOHO_REFRESH_TOKEN,
             "client_id": settings.ZOHO_CLIENT_ID,
@@ -46,7 +47,8 @@ class ZohoCRMClient:
         access_token = ZohoCRMClient.get_access_token()
         if access_token:
             headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
-            url = "https://www.zohoapis.com/crm/v3/Leads"
+            api_domain = settings.ZOHO_API_DOMAIN or "https://www.zohoapis.com"
+            url = f"{api_domain.rstrip('/')}/crm/v3/Leads"
             try:
                 with httpx.Client() as client:
                     res = client.get(url, headers=headers)

@@ -226,7 +226,7 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
     if db.bind.dialect.name == "postgresql":
         # Cosine distance vector search
         vector_query = (
-            select(models.DocumentChunk, models.Document.title)
+            select(models.DocumentChunk, models.Document.file_path)
             .join(models.Document, models.DocumentChunk.document_id == models.Document.id)
         )
         if request.project_id:
@@ -238,7 +238,7 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
     else:
         # SQLite fallback: load chunks and compute similarity in Python
         query = (
-            select(models.DocumentChunk, models.Document.title)
+            select(models.DocumentChunk, models.Document.file_path)
             .join(models.Document, models.DocumentChunk.document_id == models.Document.id)
         )
         if request.project_id:
@@ -271,7 +271,7 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
     if keywords:
         text_filters = [models.DocumentChunk.content.ilike(kw) for kw in keywords]
         text_query = (
-            select(models.DocumentChunk, models.Document.title)
+            select(models.DocumentChunk, models.Document.file_path)
             .join(models.Document, models.DocumentChunk.document_id == models.Document.id)
             .where(or_(*text_filters))
         )
@@ -285,13 +285,15 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
     combined_chunks = {}
     
     # Add vector chunks first (higher priority)
-    for chunk, doc_title in vector_chunks:
-        combined_chunks[chunk.id] = (chunk.content, doc_title)
+    for chunk, file_path in vector_chunks:
+        filename = os.path.basename(file_path)
+        combined_chunks[chunk.id] = (chunk.content, filename)
         
     # Add keyword chunks
-    for chunk, doc_title in keyword_chunks:
+    for chunk, file_path in keyword_chunks:
         if chunk.id not in combined_chunks:
-            combined_chunks[chunk.id] = (chunk.content, doc_title)
+            filename = os.path.basename(file_path)
+            combined_chunks[chunk.id] = (chunk.content, filename)
 
     context_list = list(combined_chunks.values())
 

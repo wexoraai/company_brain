@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     ZOHO_CLIENT_ID: str = os.getenv("ZOHO_CLIENT_ID", "")
     ZOHO_CLIENT_SECRET: str = os.getenv("ZOHO_CLIENT_SECRET", "")
     ZOHO_REFRESH_TOKEN: str = os.getenv("ZOHO_REFRESH_TOKEN", "")
+    ZOHO_ACCOUNTS_SERVER: str = os.getenv("ZOHO_ACCOUNTS_SERVER", "https://accounts.zoho.com")
+    ZOHO_API_DOMAIN: str = os.getenv("ZOHO_API_DOMAIN", "https://www.zohoapis.com")
 
     # Supabase configurations
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")

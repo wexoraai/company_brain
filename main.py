@@ -306,11 +306,31 @@ async def ask_question(request: schemas.QuestionRequest, db: AsyncSession = Depe
 # ----------------------------------------------------
 
 @app.get("/oauth2callback", response_class=HTMLResponse)
-async def oauth2callback(code: str, error: Optional[str] = None):
+async def oauth2callback(
+    code: str, 
+    error: Optional[str] = None, 
+    location: Optional[str] = None,
+    accounts_server: Optional[str] = None
+):
     if error:
         return f"<h3>Authentication error: {error}</h3>"
     
-    url = "https://accounts.zoho.com/oauth/v2/token"
+    # Extract accounts server URL from query param (defaults to .com)
+    accounts_url = accounts_server or "https://accounts.zoho.com"
+    # Ensure it doesn't end with slash
+    accounts_url = accounts_url.rstrip("/")
+    
+    # Derive corresponding API Domain
+    if ".zoho.in" in accounts_url.lower():
+        api_domain = "https://www.zohoapis.in"
+    elif ".zoho.eu" in accounts_url.lower():
+        api_domain = "https://www.zohoapis.eu"
+    elif ".zoho.com.au" in accounts_url.lower():
+        api_domain = "https://www.zohoapis.com.au"
+    else:
+        api_domain = "https://www.zohoapis.com"
+        
+    url = f"{accounts_url}/oauth/v2/token"
     client_id = settings.ZOHO_CLIENT_ID or "1000.4IQQQ7P3ABAN0Z7BY5CXLBDCLYVLUT"
     client_secret = settings.ZOHO_CLIENT_SECRET or "52c51ce73f1eb9159c5f79b1079f5c7cbf04f37324"
     
@@ -341,19 +361,38 @@ async def oauth2callback(code: str, error: Optional[str] = None):
         with open(env_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
             
-    lines = [line for line in lines if not any(line.startswith(prefix) for prefix in ["ZOHO_CLIENT_ID=", "ZOHO_CLIENT_SECRET=", "ZOHO_REFRESH_TOKEN="])]
+    # Clean up existing Zoho keys
+    lines = [
+        line for line in lines 
+        if not any(
+            line.startswith(prefix) 
+            for prefix in [
+                "ZOHO_CLIENT_ID=", 
+                "ZOHO_CLIENT_SECRET=", 
+                "ZOHO_REFRESH_TOKEN=",
+                "ZOHO_ACCOUNTS_SERVER=",
+                "ZOHO_API_DOMAIN="
+            ]
+        )
+    ]
     
     lines.append(f"ZOHO_CLIENT_ID={client_id}\n")
     lines.append(f"ZOHO_CLIENT_SECRET={client_secret}\n")
     lines.append(f"ZOHO_REFRESH_TOKEN={refresh_token}\n")
+    lines.append(f"ZOHO_ACCOUNTS_SERVER={accounts_url}\n")
+    lines.append(f"ZOHO_API_DOMAIN={api_domain}\n")
     
     with open(env_path, "w", encoding="utf-8") as f:
         f.writelines(lines)
         
-    return """
+    return f"""
         <div style="font-family: sans-serif; text-align: center; margin-top: 100px; color: #ececec; background-color: #171717; padding: 40px; border-radius: 12px; max-width: 500px; margin-left: auto; margin-right: auto; border: 1px solid #2f2f2f;">
             <h2 style="color: #10b981; margin-bottom: 20px;">Zoho CRM Connected Successfully!</h2>
-            <p style="margin-bottom: 20px;">Your Client ID, Client Secret, and permanent Refresh Token have been saved to your local <b>.env</b> file.</p>
+            <p style="margin-bottom: 10px;">Your Client ID, Client Secret, and permanent Refresh Token have been saved to your local <b>.env</b> file.</p>
+            <p style="margin-bottom: 20px; font-size: 0.90rem; color: #b4b4b4;">
+                Region accounts server: <b>{accounts_url}</b><br/>
+                Region API domain: <b>{api_domain}</b>
+            </p>
             <p style="color: #f59e0b;"><b>Important:</b> Please restart your backend server terminal to apply the new keys!</p>
         </div>
     """

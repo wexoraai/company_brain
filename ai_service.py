@@ -18,22 +18,70 @@ else:
 # ----------------------------------------------------
 class ZohoCRMClient:
     @staticmethod
+    def get_access_token() -> Any:
+        """Exchanges refresh token for a short-lived access token."""
+        if not settings.ZOHO_REFRESH_TOKEN or not settings.ZOHO_CLIENT_ID or not settings.ZOHO_CLIENT_SECRET:
+            return None
+        import httpx
+        url = "https://accounts.zoho.com/oauth/v2/token"
+        data = {
+            "refresh_token": settings.ZOHO_REFRESH_TOKEN,
+            "client_id": settings.ZOHO_CLIENT_ID,
+            "client_secret": settings.ZOHO_CLIENT_SECRET,
+            "grant_type": "refresh_token"
+        }
+        try:
+            with httpx.Client() as client:
+                res = client.post(url, data=data)
+                if res.status_code == 200:
+                    return res.json().get("access_token")
+        except Exception as e:
+            logger.warning(f"Failed to fetch Zoho access token: {e}")
+        return None
+
+    @staticmethod
     def get_leads(date_str: str = "yesterday") -> str:
-        """Fetch CRM lead statistics. Usually connects to Zoho CRM REST API."""
-        # Simple simulated responses based on the query parameter
+        """Fetch CRM lead statistics. Connects to Zoho CRM REST API or falls back to mock."""
+        import httpx
+        access_token = ZohoCRMClient.get_access_token()
+        if access_token:
+            headers = {"Authorization": f"Zoho-oauthtoken {access_token}"}
+            url = "https://www.zohoapis.com/crm/v3/Leads"
+            try:
+                with httpx.Client() as client:
+                    res = client.get(url, headers=headers)
+                    if res.status_code == 200:
+                        leads_data = res.json()
+                        records = leads_data.get("data", [])
+                        count = len(records)
+                        breakdown = {}
+                        for r in records:
+                            source = r.get("Lead_Source") or "Website"
+                            breakdown[source] = breakdown.get(source, 0) + 1
+                        return json.dumps({
+                            "source": "Live Zoho CRM API",
+                            "leads_count": count,
+                            "status": "active",
+                            "breakdown": breakdown
+                        })
+            except Exception as e:
+                logger.warning(f"Failed to fetch leads from live Zoho CRM: {e}")
+                
+        # Mock Fallback if token or request fails
         if "yesterday" in date_str.lower():
             return json.dumps({
-                "source": "Zoho CRM API",
+                "source": "Zoho CRM API (Mock)",
                 "leads_count": 14,
                 "status": "active",
                 "breakdown": {"Woods & Spices": 8, "La Cavana": 4, "Windflower": 2}
             })
         return json.dumps({
-            "source": "Zoho CRM API",
+            "source": "Zoho CRM API (Mock)",
             "leads_count": 45,
             "period": "last 7 days",
             "breakdown": {"Woods & Spices": 25, "La Cavana": 12, "Windflower": 8}
         })
+
 
 class ZohoBooksClient:
     @staticmethod
